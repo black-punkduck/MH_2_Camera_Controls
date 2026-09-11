@@ -1,7 +1,7 @@
 """
     License information: data/licenses/makehuman_license.txt
     Author: Elvaerwyn_MH2 Makehuman 2 2026
-    Camera Controls V3.5(presets seperated) - Formerly Zoom Patch- Cinematic Filters, overlays & Camera Presets Plus Box/marqee zoom
+    Camera Controls V4.0(presets seperated/.py) - Formerly Zoom Patch- Cinematic Filters, overlays & Camera Presets Plus Box/marqee zoom
 """
 import sys
 import os
@@ -26,12 +26,11 @@ _saved_glob_context = None
 class CameraFXProcessor:
     """Core graphic processor routing interface."""
     @staticmethod
-    def draw_effect(painter, src, w, h, intensity, selected_effect, log_w, log_h, pixel_ratio):
+    def draw_effect(painter, src, w, h, intensity, selected_effect, log_w, log_h, pixel_ratio, config=None):
         import math_presets
         math_presets.CameraFXProcessor.draw_effect(
-            painter, src, w, h, intensity, selected_effect, log_w, log_h, pixel_ratio
+            painter, src, w, h, intensity, selected_effect, log_w, log_h, pixel_ratio, config
         )
-
 
 def apply_box_zoom(camera, x1, y1, x2, y2):
     """Calculates marquee box zoom vectors utilizing physical display boundaries."""
@@ -78,7 +77,6 @@ def apply_box_zoom(camera, x1, y1, x2, y2):
 
     camera.updateViewMatrix()
     camera.calculateProjMatrix()
-
 
 class DynamicInputInterceptor(QObject):
     """Monitors layout boundaries, handles marquee marquee zoom transformations, and manages overlay geometry scaling."""
@@ -202,41 +200,40 @@ class CinematicPresetsUI(QWidget):
         layout.addWidget(fx_section_title)
 
         self.fx_dropdown = QComboBox()
-        self.fx_dropdown.addItems([
-            "None",
-            "1920s Movie",
-            "8-Bit Arcade",
-            "80s PC Monitor",
-            "80s Tube Television",
-            "90s Camcorder",
-            "Chromatic Aberration", 
-            "Clouds Layer",
-            "Comic Book Style",
-            "Crime Scene",
-            "Cyberpunk Terminal",
-            "Found Footage",
-            "Halo Godlight",
-            "Hearts Valentine",
-            "Hologram",
-            "Instant Photo Border",
-            "Lighting Energy",
-            "Mirror Border",
-            "Model Portfolio",
-            "Mugshot",
-            "Oil Painting",            
-            "Postcard",
-            "Prism Light Leaks",
-            "Psychedelic",
-            "Raindrops",
-            "Security Cam HUD",
-            "Smoke Curls",
-            "Stickers Overlay",
-            "Thermal Mapping (FLIR)",
-            "True Black and White",
-            "Vintage Film Noise",
-            "Western",
-            "X-Ray View"
-        ])
+        
+        # --- DYNAMIC PYTHON SHADER MOD SCANNER ---
+        import importlib.util
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        effects_dir = os.path.join(plugin_dir, "effects")
+        
+        self.dynamic_effects_registry = {}
+        dropdown_options = ["None"]
+        
+        if os.path.exists(effects_dir):
+            for filename in sorted(os.listdir(effects_dir)):
+                # Dynamically discover any standalone script file while bypassing structural systems
+                if filename.lower().endswith('.py') and filename != "__init__.py":
+                    file_path = os.path.join(effects_dir, filename)
+                    module_name = f"runtime_fx_{filename[:-3]}"
+                    
+                    try:
+                        # Compile and map the independent module straight into memory
+                        spec = importlib.util.spec_from_file_location(module_name, file_path)
+                        mod = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(mod)
+                        
+                        # Grab the target screen identity row declared inside the mod
+                        effect_name = getattr(mod, "NAME", filename[:-3])
+                        
+                        self.dynamic_effects_registry[effect_name] = mod
+                        dropdown_options.append(effect_name)
+                    except Exception as e:
+                        print(f"[Camera UI] Skipped broken module script {filename}: {e}")
+        else:
+            print(f"[Camera UI Warning]: 'effects' folder not found at: {effects_dir}")
+            
+        self.fx_dropdown.addItems(dropdown_options)
+        # --------------------------------------------
 
         layout.addWidget(self.fx_dropdown)
 
@@ -303,11 +300,19 @@ class CinematicPresetsUI(QWidget):
             return
 
         view = _saved_glob_context.openGLWindow
-        selected_effect = self.fx_dropdown.currentText().lower().strip()
+        
+        # 1. Grab selected name exactly as it shows in the dropdown
+        selected_effect = self.fx_dropdown.currentText()
         intensity = self.fx_slider.value()
 
-        if selected_effect == "none":
+        if selected_effect == "None":
             _filter_overlay_label.clear()
+            return
+
+        # Fetch the loaded executable script module directly from registry memory
+        effect_module = self.dynamic_effects_registry.get(selected_effect)
+        if not effect_module or not hasattr(effect_module, "draw"):
+            print(f"[Camera Controls Error]: Executable module missing or broken for '{selected_effect}'")
             return
 
         w, h = _filter_overlay_label.width(), _filter_overlay_label.height()
@@ -337,10 +342,11 @@ class CinematicPresetsUI(QWidget):
         log_h = h
         w, h = phys_w, phys_h
 
-        # Route out rendering directly to the split file class
-        CameraFXProcessor.draw_effect(
-            painter, src, w, h, intensity, selected_effect, log_w, log_h, pixel_ratio
-        )
+        try:
+            # Route execution directly into the isolated script's drawing track
+            effect_module.draw(painter, src, w, h, intensity, log_w, log_h, pixel_ratio)
+        except Exception as e:
+            print(f"[Camera FX Error] Exception occurred inside module '{selected_effect}': {e}")
 
         painter.end()
         _filter_overlay_label.setPixmap(canvas_pixmap)
@@ -453,7 +459,6 @@ def load_extension(app, glob):
             _ui_panel_instance.show()
         
     return {"status": "camera_controls_active"}
-
 
 def unload_extension():
     """Unregisters core event handlers, deletes interface widgets, and flushes layer memory structures."""
