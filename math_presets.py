@@ -13,7 +13,6 @@ from PySide6.QtCore import Qt, QPoint, QRect, QSize
 from PySide6.QtGui import QPixmap, QPainter, QImage, QColor, QRadialGradient, QLinearGradient, QPen, QPolygon
 
 from PySide6.QtGui import QLinearGradient
-from . import camera_presets 
 
 def trigger_cinematic_preset(camera, preset_name):
     """Applies camera positioning matrices and transforms projection fields."""
@@ -23,6 +22,7 @@ def trigger_cinematic_preset(camera, preset_name):
     name = preset_name.lower().strip()
     
     # Retrieve configuration profile
+    import camera_presets 
     preset = camera_presets.PRESETS.get(name)
     if not preset:
         return

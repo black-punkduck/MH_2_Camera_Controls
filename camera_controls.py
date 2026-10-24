@@ -16,10 +16,11 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QGridLayout, QPushButton, QLabel, QRubberBand, QComboBox, QDockWidget, QSlider)
 from PySide6.QtGui import QPixmap, QPainter, QImage, QColor, QRadialGradient, QPen
 
-from . import math_presets
+
 
 class CameraFXProcessor:
     """Core graphic processor routing interface."""
+    import math_presets
     @staticmethod
     def draw_effect(painter, src, w, h, intensity, selected_effect, log_w, log_h, pixel_ratio, config=None):
         math_presets.CameraFXProcessor.draw_effect(
@@ -379,6 +380,7 @@ class CameraPlugin(QWidget):
         self.filter_overlay_label.clear()
         self.panel.fx_dropdown.setCurrentText("None")
 
+        from . import math_presets
         math_presets.trigger_cinematic_preset(self.camera, key)
         self.glWindow.update()
 
