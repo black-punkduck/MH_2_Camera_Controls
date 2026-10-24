@@ -1,11 +1,6 @@
 #
 plugin can be added as usual in pyproject.toml
 
-For testing and comparing I kept two versions like that
-
-camcontrol = "mh2_official_tools.camcontrol"
-#camcontrol = "mh2_official_tools.camcontrolold"
-
 Changes:
 after realizing the box-plugin is here as well, one should only add that once (otherwise the input gets problems)
 
@@ -19,3 +14,4 @@ plugin in did not try to activate that code. Sound interesting though what it sh
 
 All effects are untouched.
 
+__init__ was missing (to avoid import somewhere else)
